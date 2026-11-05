@@ -1,0 +1,65 @@
+{
+ "name": "Atlante di campo",
+ "short_name": "Atlante",
+ "description": "Atlante di campo: catalogo di punti con foto, audio e GPS, percorsi, mappe e capitoli dei luoghi. by Lollo ®2026",
+ "id": "./",
+ "start_url": "./index.html",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "any",
+ "background_color": "#f3f5f1",
+ "theme_color": "#2f6b3f",
+ "lang": "it",
+ "categories": [
+  "education",
+  "navigation",
+  "utilities"
+ ],
+ "icons": [
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "share_target": {
+  "action": "./?share-target",
+  "method": "POST",
+  "enctype": "multipart/form-data",
+  "params": {
+   "title": "title",
+   "text": "text",
+   "files": [
+    {
+     "name": "file",
+     "accept": [
+      "application/gpx+xml",
+      ".gpx",
+      "application/vnd.google-earth.kml+xml",
+      ".kml",
+      "application/geo+json",
+      ".geojson",
+      "application/zip",
+      ".zip",
+      "application/octet-stream",
+      "text/xml",
+      "application/xml"
+     ]
+    }
+   ]
+  }
+ }
+}

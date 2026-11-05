@@ -1,0 +1,246 @@
+/* Atlante di campo - Condivisione, esportazioni (GPX, KML, GeoJSON, CSV, schede stampabili), ZIP e importazione.
+   by Lollo ®2026 · i moduli si caricano nell'ordine dei numeri (vedi index.html) */
+'use strict';
+/* =================== CONDIVISIONE / DOWNLOAD =================== */
+function download(blob,name){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove()},4000)}
+function shareOrDownload(blob,name,title){
+  try{var f=new File([blob],name,{type:blob.type||'application/octet-stream'});if(navigator.canShare&&navigator.canShare({files:[f]}))return navigator.share({files:[f],title:title||name}).then(function(){return true}).catch(function(e){if(e.name==='AbortError')return false;download(blob,name);return true})}catch(e){}
+  download(blob,name);return Promise.resolve(true);
+}
+
+/* =================== CONFIGURAZIONE CIFRATA ===================
+   File .atlcfg: JSON esterno con KDF e cifratura, contenuto AES-GCM.
+   La password non viene memorizzata. Il token OAuth temporaneo di Google
+   resta escluso: dopo un ripristino è corretto effettuare di nuovo l'accesso. */
+var CFGCRYPT={magic:'atlante-config-encrypted',plain:'atlante-config',v:1,iter:250000};
+function cfgB64(u){var s='',step=0x8000;for(var i=0;i<u.length;i+=step)s+=String.fromCharCode.apply(null,u.subarray(i,i+step));return btoa(s)}
+function cfgU8(s){var b=atob(String(s||'')),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+function cfgCrypto(){if(!window.crypto||!crypto.subtle)throw new Error('La cifratura non è disponibile. Apri l’app dall’indirizzo HTTPS di GitHub Pages.');return crypto.subtle}
+function cfgKey(password,salt,usage,iterations){
+  var sub=cfgCrypto(),enc=new TextEncoder();
+  return sub.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveKey']).then(function(base){
+    return sub.deriveKey({name:'PBKDF2',salt:salt,iterations:iterations||CFGCRYPT.iter,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,[usage]);
+  });
+}
+function cfgSettings(){
+  var s=JSON.parse(JSON.stringify(SET||{}));
+  ['gOk','gLast','gH','lastBackup','changes','seenVer','glgLast'].forEach(function(k){delete s[k]});
+  return s;
+}
+function exportConfig(){
+  var p=prompt('Scegli una password per proteggere ID client, chiavi API e preferenze.\n\nUsa almeno 8 caratteri e conservala: non può essere recuperata.');
+  if(p===null)return Promise.resolve();if(p.length<8){alert('La password deve avere almeno 8 caratteri.');return Promise.resolve()}
+  var p2=prompt('Ripeti la password:');if(p2===null)return Promise.resolve();if(p!==p2){alert('Le due password non coincidono.');return Promise.resolve()}
+  try{cfgCrypto()}catch(e){alert(e.message);return Promise.resolve()}
+  var salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  var plain={app:CFGCRYPT.plain,format:CFGCRYPT.v,appVersion:VERSION,exported:new Date().toISOString(),settings:cfgSettings()};
+  return cfgKey(p,salt,'encrypt').then(function(key){return crypto.subtle.encrypt({name:'AES-GCM',iv:iv},key,new TextEncoder().encode(JSON.stringify(plain)))}).then(function(ab){
+    var box={app:CFGCRYPT.magic,format:CFGCRYPT.v,created:plain.exported,kdf:{name:'PBKDF2',hash:'SHA-256',iterations:CFGCRYPT.iter,salt:cfgB64(salt)},cipher:{name:'AES-GCM',iv:cfgB64(iv)},data:cfgB64(new Uint8Array(ab))};
+    var blob=new Blob([JSON.stringify(box,null,1)],{type:'application/octet-stream'}),name='configurazione_lollomap_pro_'+stamp()+'.atlcfg';
+    return shareOrDownload(blob,name,'Configurazione cifrata LolloMap Pro').then(function(ok){toast(ok?'🔐 Configurazione cifrata pronta':'Esportazione annullata',3500)});
+  }).catch(function(e){alert('Esportazione configurazione non riuscita: '+e.message)});
+}
+function importConfigFile(file){
+  if(!file)return Promise.resolve();
+  return file.text().then(function(txt){
+    var box;try{box=JSON.parse(txt)}catch(e){throw new Error('file non valido')}
+    if(!box||box.app!==CFGCRYPT.magic||box.format!==CFGCRYPT.v||!box.kdf||!box.cipher||!box.data)throw new Error('file di configurazione non riconosciuto');
+    if(box.kdf.name!=='PBKDF2'||box.kdf.hash!=='SHA-256'||box.cipher.name!=='AES-GCM')throw new Error('metodo di cifratura non supportato');
+    var it=+box.kdf.iterations;if(!isFinite(it)||it<100000||it>2000000)throw new Error('parametri di sicurezza non validi');
+    var p=prompt('Inserisci la password del file di configurazione:');if(p===null)throw {cancel:true};
+    return cfgKey(p,cfgU8(box.kdf.salt),'decrypt',it).then(function(key){return crypto.subtle.decrypt({name:'AES-GCM',iv:cfgU8(box.cipher.iv)},key,cfgU8(box.data))}).then(function(ab){
+      var data=JSON.parse(new TextDecoder().decode(ab));
+      if(!data||data.app!==CFGCRYPT.plain||data.format!==CFGCRYPT.v||!data.settings||typeof data.settings!=='object')throw new Error('contenuto non riconosciuto');
+      if(!confirm('Importare questa configurazione?\n\nSaranno sostituite preferenze, ID client e chiavi API. Punti, foto, audio e tracce non verranno modificati. Dopo dovrai accedere nuovamente a Google Drive.'))return false;
+      SET=Object.assign({},SET,data.settings);SET.gOk=0;delete SET.gLast;delete SET.gH;
+      if(typeof GD!=='undefined'){GD.tok=null;GD.exp=0}try{localStorage.removeItem('atl_gtok')}catch(e){}
+      return saveSet().then(function(){alert('Configurazione importata correttamente. L’app verrà ricaricata.');location.reload();return true});
+    }).catch(function(e){if(e&&e.cancel)throw e;throw new Error('password errata oppure file danneggiato')});
+  }).catch(function(e){if(!e||!e.cancel)alert('Importazione configurazione non riuscita: '+(e&&e.message||e))});
+}
+function shareOne(p){var t=(p.title||'')+'\n'+CAT(p.cat).n+(p.sp&&p.sp.sci?' – '+p.sp.sci:'')+'\n'+(p.note||'')+'\nhttps://www.google.com/maps/search/?api=1&query='+p.lat+','+p.lon;
+  var ph=firstPhoto(p);
+  (ph?DB.get('media',ph.id):Promise.resolve(null)).then(function(r){var files=[];if(r){files.push(new File([r.blob],slug(p.title)+'.jpg',{type:'image/jpeg'}))}
+    if(navigator.share){var data={title:p.title,text:t};if(files.length&&navigator.canShare&&navigator.canShare({files:files}))data.files=files;navigator.share(data).catch(function(){})}
+    else{navigator.clipboard&&navigator.clipboard.writeText(t);toast('Testo copiato negli appunti')}})}
+
+/* =================== FORMATI DI ESPORTAZIONE =================== */
+function xesc(s){return String(s==null?'':s).replace(/[<>&'"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]})}
+function pointDesc(p){var a=[CAT(p.cat).n];if(p.sp&&(p.sp.com||p.sp.sci))a.push((p.sp.com||'')+(p.sp.sci?' ('+p.sp.sci+')':''));Object.keys(p.x||{}).forEach(function(k){if(p.x[k])a.push(extraLabel(k)+': '+p.x[k])});SCHEDA.forEach(function(s){if(p.s&&p.s[s.k])a.push(s.l+': '+p.s[s.k])});if(p.note)a.push(p.note);if(p.ric)a.push('Dalla ricerca: '+p.ric);if(isInd(p))a.push('Posizione indicativa, da verificare');if(p.tags&&p.tags.length)a.push('Tag: '+p.tags.join(', '));if(p.meteo)a.push('Meteo: '+p.meteo);return a.join('\n')}
+function toGPX(points,tracks){
+  var s='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Atlante di campo '+BRAND+'" xmlns="http://www.topografix.com/GPX/1/1">\n<metadata><name>Atlante di campo</name><time>'+new Date().toISOString()+'</time></metadata>\n';
+  points.forEach(function(p){s+='<wpt lat="'+p.lat.toFixed(7)+'" lon="'+p.lon.toFixed(7)+'">'+(p.alt!=null?'<ele>'+p.alt+'</ele>':'')+'<time>'+xesc(p.when)+'</time><name>'+xesc(p.title)+'</name><desc>'+xesc(pointDesc(p))+'</desc><type>'+xesc(CAT(p.cat).n)+'</type></wpt>\n'});
+  (tracks||[]).forEach(function(t){s+='<trk><name>'+xesc(t.name)+'</name><trkseg>\n';t.pts.forEach(function(q,qi){if(qi&&t.brk&&t.brk.indexOf(qi)>=0)s+='</trkseg><trkseg>\n';s+='<trkpt lat="'+q[0]+'" lon="'+q[1]+'">'+(q[2]!=null?'<ele>'+q[2]+'</ele>':'')+'<time>'+new Date(q[3]).toISOString()+'</time></trkpt>\n'});s+='</trkseg></trk>\n'});
+  return s+'</gpx>\n';
+}
+function kmlColor(hex){var h=hex.replace('#','');return 'ff'+h.slice(4,6)+h.slice(2,4)+h.slice(0,2)}
+function toKML(points,tracks,mediaName){
+  var s='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Atlante di campo</name>\n';
+  CATS.forEach(function(c){s+='<Style id="c_'+c.id+'"><IconStyle><color>'+kmlColor(c.c)+'</color><Icon><href>http://maps.google.com/mapfiles/kml/paddle/wht-blank.png</href></Icon></IconStyle></Style>\n'});
+  s+='<Style id="trk"><LineStyle><color>ff4db7ff</color><width>4</width></LineStyle></Style>\n';
+  CATS.forEach(function(c){var ps=points.filter(function(p){return p.cat===c.id});if(!ps.length)return;s+='<Folder><name>'+xesc(c.n)+'</name>\n';
+    ps.forEach(function(p){var imgs='';if(mediaName)(p.media||[]).filter(function(m){return m.type==='photo'}).forEach(function(m){imgs+='<img src="'+mediaName(p,m)+'" width="300"><br>'});
+      s+='<Placemark><name>'+xesc(p.title)+'</name><styleUrl>#c_'+c.id+'</styleUrl><TimeStamp><when>'+xesc(p.when)+'</when></TimeStamp><description><![CDATA['+esc(pointDesc(p)).replace(/\n/g,'<br>')+(imgs?'<br>'+imgs:'')+']]></description><Point><coordinates>'+p.lon.toFixed(7)+','+p.lat.toFixed(7)+(p.alt!=null?','+p.alt:'')+'</coordinates></Point></Placemark>\n'});
+    s+='</Folder>\n'});
+  if(tracks&&tracks.length){s+='<Folder><name>Tracce</name>\n';tracks.forEach(function(t){s+='<Placemark><name>'+xesc(t.name)+'</name><styleUrl>#trk</styleUrl><LineString><tessellate>1</tessellate><coordinates>'+t.pts.map(function(q){return q[1]+','+q[0]+(q[2]!=null?','+q[2]:'')}).join(' ')+'</coordinates></LineString></Placemark>\n'});s+='</Folder>\n'}
+  return s+'</Document></kml>\n';
+}
+function toGeoJSON(points,tracks,mediaName){
+  var f=points.map(function(p){var pr={id:p.id,titolo:p.title,categoria:CAT(p.cat).n,data:p.when,specie_scientifica:p.sp&&p.sp.sci||'',nome_comune:p.sp&&p.sp.com||'',note:p.note,ricerca:p.ric||'',origine_posizione:p.posSrc||'',tag:(p.tags||[]).join(', '),precisione_m:p.acc,quota_m:p.alt,meteo:p.meteo,compilatore:p.comp,colore:CAT(p.cat).c};
+    Object.keys(p.x||{}).forEach(function(k){pr[k]=p.x[k]});SCHEDA.forEach(function(s){if(p.s&&p.s[s.k])pr[s.k]=p.s[s.k]});
+    if(mediaName)pr.media=(p.media||[]).map(function(m){return {file:mediaName(p,m),tipo:m.type,didascalia:m.cap}});
+    return {type:'Feature',geometry:{type:'Point',coordinates:[+p.lon.toFixed(7),+p.lat.toFixed(7)].concat(p.alt!=null?[p.alt]:[])},properties:pr}});
+  (tracks||[]).forEach(function(t){f.push({type:'Feature',geometry:{type:'LineString',coordinates:t.pts.map(function(q){return [q[1],q[0]].concat(q[2]!=null?[q[2]]:[])})},properties:{nome:t.name,inizio:new Date(t.start).toISOString(),fine:t.end?new Date(t.end).toISOString():null}})});
+  return JSON.stringify({type:'FeatureCollection',features:f},null,1);
+}
+function toCSV(points){
+  var xk=[];Object.keys(EXTRA).forEach(function(c){EXTRA[c].forEach(function(f){if(xk.indexOf(f.k)<0)xk.push(f.k)})});
+  var head=['id','data','categoria','titolo','nome_comune','specie_scientifica','lat','lon','precisione_m','quota_m','note','ricerca','origine_posizione','tag','n_foto','n_audio','meteo','compilatore'].concat(xk).concat(SCHEDA.map(function(s){return s.k}));
+  var rows=[head];
+  points.forEach(function(p){var ph=(p.media||[]).filter(function(m){return m.type==='photo'}).length;
+    var r=[p.id,fmtDate(p.when),CAT(p.cat).n,p.title,p.sp&&p.sp.com,p.sp&&p.sp.sci,p.lat.toFixed(7).replace('.',','),p.lon.toFixed(7).replace('.',','),p.acc,p.alt,p.note,p.ric||'',p.posSrc||'',(p.tags||[]).join(', '),ph,(p.media||[]).length-ph,p.meteo,p.comp].concat(xk.map(function(k){return p.x&&p.x[k]})).concat(SCHEDA.map(function(s){return p.s&&p.s[s.k]}));
+    rows.push(r)});
+  return csvText(rows);
+}
+/* ---- report HTML (stampabile / PDF) ---- */
+function reportHTML(points,imgSrc,audSrc,opts){opts=opts||{};
+  var cnt={};points.forEach(function(p){cnt[p.cat]=(cnt[p.cat]||0)+1});
+  var css='body{font:13px/1.45 Georgia,serif;color:#111;margin:18px}h1{font-size:22px;margin:0}h2{font-size:17px;margin:0 0 6px;border-bottom:2px solid #333}table{border-collapse:collapse;width:100%;margin:6px 0}td{border:1px solid #999;padding:4px 6px;vertical-align:top}td.k{width:28%;background:#f1f1f1;font-weight:bold}.sch{page-break-after:always;margin-bottom:22px}.ph{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.ph figure{margin:0}.ph img{width:100%;height:150px;object-fit:cover;border:1px solid #999}.ph figcaption{font-size:11px}.ft{font-size:11px;color:#555;margin-top:10px}@media print{body{margin:8mm}}';
+  var h='<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Atlante di campo – schede</title><style>'+css+'</style></head><body>';
+  if(opts.cover)h+=opts.cover;else h+='<div class="sch"><h1>Atlante di campo – '+esc(PL.name())+'</h1><p>Schede di campo · '+points.length+' punti · generato il '+fmtDate(new Date().toISOString())+'</p><table>'+CATS.filter(function(c){return cnt[c.id]}).map(function(c){return '<tr><td class="k">'+esc(c.n)+'</td><td>'+cnt[c.id]+'</td></tr>'}).join('')+'</table><p class="ft">'+esc(SET.compilatore)+' · '+BRAND+'</p></div>';
+  points.forEach(function(p,i){var c=CAT(p.cat);var rows=[['N°',(i+1)],['Categoria',c.n],['Data e ora',fmtDate(p.when)],['Geolocalizzazione',p.lat.toFixed(6)+', '+p.lon.toFixed(6)+(p.acc?' (±'+p.acc+' m)':'')+' – https://www.google.com/maps/search/?api=1&query='+p.lat.toFixed(6)+','+p.lon.toFixed(6)]];
+    if(p.alt!=null)rows.push(['Quota',p.alt+' m']);
+    if(p.sp&&(p.sp.com||p.sp.sci))rows.push(['Specie',(p.sp.com||'')+(p.sp.sci?' – '+p.sp.sci:'')]);
+    Object.keys(p.x||{}).forEach(function(k){if(p.x[k])rows.push([extraLabel(k),p.x[k]])});
+    rows.push(['Descrizione',p.note||'']);if(p.ric)rows.push(['Dalla ricerca',p.ric]);if(p.posSrc)rows.push(['Origine posizione',p.posSrc]);
+    SCHEDA.forEach(function(s){if(p.s&&p.s[s.k])rows.push([s.l,p.s[s.k]])});
+    if(p.meteo)rows.push(['Meteo',p.meteo]);if(p.tags&&p.tags.length)rows.push(['Tag',p.tags.join(', ')]);rows.push(['Compilatore',p.comp||'']);
+    h+='<div class="sch"><h2>'+esc(p.title)+'</h2><table>'+rows.map(function(r){var v=esc(r[1]).replace(/\n/g,'<br>').replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1">$1</a>');return '<tr><td class="k">'+esc(r[0])+'</td><td>'+v+'</td></tr>'}).join('')+'</table>';
+    var ph=(p.media||[]).filter(function(m){return m.type==='photo'});if(ph.length)h+='<div class="ph">'+ph.map(function(m){return '<figure><img src="'+imgSrc(p,m)+'" alt=""><figcaption>'+esc(m.cap||'')+'</figcaption></figure>'}).join('')+'</div>';
+    var au=(p.media||[]).filter(function(m){return m.type==='audio'});if(au.length)h+='<p><b>Audio:</b></p>'+au.map(function(m){return '<div>'+(audSrc?'<audio controls src="'+audSrc(p,m)+'"></audio> ':'🎙️ ')+esc(m.cap||'registrazione')+'</div>'}).join('');
+    h+='</div>'});
+  return h+'<p class="ft">'+BRAND+'</p></body></html>';
+}
+function blobToDataURL(b){return new Promise(function(res){var r=new FileReader();r.onload=function(){res(r.result)};r.readAsDataURL(b)})}
+function printReport(points,opts){
+  toast('Preparo le schede…');
+  var map2={};var jobs=[];points.forEach(function(p){(p.media||[]).forEach(function(m){if(m.type==='photo')jobs.push(DB.get('media',m.id).then(function(r){if(r)return blobToDataURL(r.blob).then(function(u){map2[m.id]=u})}))})});
+  Promise.all(jobs).then(function(){var html=reportHTML(points,function(p,m){return map2[m.id]||''},null,opts);
+    var w=window.open('','_blank');if(w){w.document.open();w.document.write(html+'<script>setTimeout(function(){print()},600)<\/script>');w.document.close()}else shareOrDownload(new Blob([html],{type:'text/html'}),'schede_atlante_'+stamp()+'.html')});
+}
+
+/* =================== ZIP (scrittura e lettura senza librerie) =================== */
+var CRC=(function(){var t=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u){var c=0xFFFFFFFF;for(var i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function zipBlob(files){
+  var enc=new TextEncoder(),parts=[],cd=[],off=0,d=new Date();
+  var dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF,dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  files.forEach(function(f){var nm=enc.encode(f.name),data=f.data,crc=crc32(data);
+    var lh=new DataView(new ArrayBuffer(30));lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(8,0,true);lh.setUint16(10,dt,true);lh.setUint16(12,dd,true);lh.setUint32(14,crc,true);lh.setUint32(18,data.length,true);lh.setUint32(22,data.length,true);lh.setUint16(26,nm.length,true);lh.setUint16(28,0,true);
+    parts.push(lh.buffer,nm,data);
+    var ch=new DataView(new ArrayBuffer(46));ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(10,0,true);ch.setUint16(12,dt,true);ch.setUint16(14,dd,true);ch.setUint32(16,crc,true);ch.setUint32(20,data.length,true);ch.setUint32(24,data.length,true);ch.setUint16(28,nm.length,true);ch.setUint16(30,0,true);ch.setUint16(32,0,true);ch.setUint16(34,0,true);ch.setUint16(36,0,true);ch.setUint32(38,0,true);ch.setUint32(42,off,true);
+    cd.push(ch.buffer,nm);off+=30+nm.length+data.length});
+  var cdSize=cd.reduce(function(a,b){return a+(b.byteLength!=null?b.byteLength:b.length)},0);
+  var e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdSize,true);e.setUint32(16,off,true);
+  return new Blob(parts.concat(cd,[e.buffer]),{type:'application/zip'});
+}
+function unzip(buf){
+  var v=new DataView(buf),u8=new Uint8Array(buf),dec=new TextDecoder(),eo=-1;
+  for(var i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-65600);i--){if(v.getUint32(i,true)===0x06054b50){eo=i;break}}
+  if(eo<0)return Promise.reject(new Error('file ZIP non valido'));
+  var n=v.getUint16(eo+10,true),p=v.getUint32(eo+16,true),out={},jobs=[];
+  for(var k=0;k<n;k++){if(v.getUint32(p,true)!==0x02014b50)break;var meth=v.getUint16(p+10,true),cs=v.getUint32(p+20,true),nl=v.getUint16(p+28,true),xl=v.getUint16(p+30,true),cl=v.getUint16(p+32,true),lo=v.getUint32(p+42,true);
+    var name=dec.decode(u8.subarray(p+46,p+46+nl));p+=46+nl+xl+cl;
+    var ds=lo+30+v.getUint16(lo+26,true)+v.getUint16(lo+28,true),data=u8.slice(ds,ds+cs);
+    (function(name,meth,data){if(meth===0)out[name]=data;else if(meth===8&&window.DecompressionStream){jobs.push(new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer().then(function(ab){out[name]=new Uint8Array(ab)}))}})(name,meth,data)}
+  return Promise.all(jobs).then(function(){return out});
+}
+function ext(m){var t=(m.mime||'').toLowerCase();if(t.indexOf('jpeg')>=0||t.indexOf('jpg')>=0)return 'jpg';if(t.indexOf('png')>=0)return 'png';if(t.indexOf('webm')>=0)return 'webm';if(t.indexOf('mp4')>=0||t.indexOf('m4a')>=0||t.indexOf('aac')>=0)return 'm4a';if(t.indexOf('ogg')>=0)return 'ogg';if(t.indexOf('mpeg')>=0||t.indexOf('mp3')>=0)return 'mp3';if(t.indexOf('wav')>=0)return 'wav';return 'bin'}
+function mediaName(p,m){var idx=(p.media||[]).indexOf(m)+1;return 'media/'+slug(p.title)+'_'+p.id.slice(-5)+'_'+(m.type==='photo'?'foto':'audio')+idx+'.'+ext(m)}
+function exportZip(o){o=o&&o.pts?o:{};
+  toast(o.perc?'Preparo lo ZIP del percorso…':o.part?'Preparo lo ZIP…':'Preparo il backup completo…',8000);
+  var trks=o.trks||TRACKS,enc=new TextEncoder(),files=[],pts=(o.pts||POINTS).slice().sort(function(a,b){return (a.when||'').localeCompare(b.when||'')}),mjobs=[];
+  pts.forEach(function(p){(p.media||[]).forEach(function(m){mjobs.push(DB.get('media',m.id).then(function(r){if(!r)throw new Error('Allegato mancante: '+m.id);return r.blob.arrayBuffer().then(function(ab){files.push({name:mediaName(p,m),data:new Uint8Array(ab)})})}))})});
+  return Promise.all(mjobs).then(async function(){
+    var offline=(!o.perc&&!o.part)?await ZONA.backup(files):null;
+    var data={app:'lollomap-pro',version:(window.parent&&window.parent!==window&&window.parent.PRO?window.parent.PRO.version:VERSION),exported:new Date().toISOString(),points:pts.map(function(p){var q=JSON.parse(JSON.stringify(p));q.media.forEach(function(m,i){m.file=mediaName(p,p.media[i])});return q}),tracks:trks,checklist:CHECK,fonti:FON.lib,diario:FON.dia,livelli:FON.cl,luoghi:PL.list,percorsi:o.perc?[o.perc]:PC.list};
+    if(offline)data.offline=offline;
+    if(!o.perc&&!o.part&&window.parent&&window.parent!==window&&window.parent.PRO)data.mapState=window.parent.PRO.snapshot();
+    files.unshift({name:'LEGGIMI.txt',data:enc.encode('LolloMap Pro - backup unificato del '+fmtDate(data.exported)+'\r\n\r\ndati.json: configurazione della mappa, punti, tracce, diario, fonti e luoghi.\r\nmedia/: foto e registrazioni.\r\nLe mappe sono incluse solo se scelte durante l’esportazione.\r\nLe chiavi API vanno esportate separatamente con Configurazione cifrata.\r\n\r\n'+BRAND+'\r\n')},
+      {name:'dati.json',data:enc.encode(JSON.stringify(data))},
+      {name:'schede.html',data:enc.encode(reportHTML(pts,mediaName,mediaName,o.perc?{cover:PC.cover(o.perc,{pts:pts,trks:trks})}:null))},
+      {name:'punti.gpx',data:enc.encode(toGPX(pts,trks))},
+      {name:'punti.kml',data:enc.encode(toKML(pts,trks,mediaName))},
+      {name:'punti.geojson',data:enc.encode(toGeoJSON(pts,trks,mediaName))},
+      {name:'punti.csv',data:enc.encode(toCSV(pts))});
+    if(FON.dia.length)files.push({name:'diario.csv',data:enc.encode(csvText(diarioRows()))});
+    if(FON.lib.length)files.push({name:'bibliografia.txt',data:enc.encode(libText())});
+    return (pts.length?XLSX.points(pts,trks,o.perc||null).then(function(x){return x.arrayBuffer()}).then(function(ab){files.push({name:'schede.xlsx',data:new Uint8Array(ab)})}).catch(function(e){alert('Excel non incluso nel backup: '+e.message+'. Gli altri dati verranno esportati.')}):Promise.resolve()).then(function(){
+    var z=zipBlob(files);
+    return shareOrDownload(z,o.name||'lollomap_pro_'+stamp()+'.zip',o.title||'Backup LolloMap Pro').then(async function(ok){
+      if(!ok){toast('Esportazione annullata: promemoria backup mantenuto');return}
+      if(!o.perc&&!o.part&&confirm('Hai salvato il file ZIP oppure completato la condivisione?\n\nConferma solo quando il file è disponibile: aggiornerò il promemoria del backup.')){SET.lastBackup=Date.now();SET.changes=0;await saveSet();updBackupDot()}
+      toast((o.perc||o.part?'ZIP pronto (':'Backup pronto (')+fmtSize(z.size)+')',4000);refreshPage()})});
+  }).catch(function(e){alert('Errore durante l\'esportazione: '+e.message)});
+}
+function exportText(kind,pts,trks,name){
+  pts=(pts||POINTS).slice().sort(function(a,b){return (a.when||'').localeCompare(b.when||'')});trks=trks||TRACKS;var s,t,n;
+  if(kind==='gpx'){s=toGPX(pts,trks);t='application/gpx+xml'}else if(kind==='kml'){s=toKML(pts,trks,null);t='application/vnd.google-earth.kml+xml'}else if(kind==='geojson'){s=toGeoJSON(pts,trks,null);t='application/geo+json'}else{s=toCSV(pts);t='text/csv'}
+  n=(name||'atlante_'+stamp())+'.'+kind;shareOrDownload(new Blob([s],{type:t}),n);
+}
+/* ---- importazione ---- */
+function importFile(f){
+  var nm=f.name.toLowerCase();
+  if(nm.endsWith('.zip'))return f.arrayBuffer().then(unzip).then(importZipFiles);
+  return f.text().then(function(txt){
+    if(nm.endsWith('.json')&&txt.indexOf('lollomap-pro')>=0)return importData(JSON.parse(txt),{});
+    var pts=[],trks=[];
+    if(nm.endsWith('.gpx')||txt.indexOf('<gpx')>=0){var x=new DOMParser().parseFromString(txt,'application/xml');$$('wpt',x).forEach(function(w){pts.push({lat:+w.getAttribute('lat'),lon:+w.getAttribute('lon'),name:($('name',w)||{}).textContent,desc:($('desc',w)||{}).textContent,ele:($('ele',w)||{}).textContent,time:($('time',w)||{}).textContent})});trks=gpxTracks(x,f.name)}
+    else if(nm.endsWith('.kml')||txt.indexOf('<kml')>=0){var k=new DOMParser().parseFromString(txt,'application/xml');$$('Placemark',k).forEach(function(pm){var c=$('Point coordinates',pm);if(!c)return;var a=c.textContent.trim().split(',');pts.push({lat:+a[1],lon:+a[0],ele:a[2],name:($('name',pm)||{}).textContent,desc:(($('description',pm)||{}).textContent||'').replace(/<[^>]+>/g,' ')})})}
+    else{var g=JSON.parse(txt);(g.features||[]).forEach(function(ft){if(ft.geometry&&ft.geometry.type==='Point'){var pr=ft.properties||{};pts.push({lat:ft.geometry.coordinates[1],lon:ft.geometry.coordinates[0],ele:ft.geometry.coordinates[2],name:pr.titolo||pr.name||pr.nome,desc:pr.note||pr.description||pr.desc})}})}
+    // Importa anche le geometrie lineari esportate dall’Atlante.
+    function addLine(coords,name){
+      var now=Date.now(),a=(coords||[]).filter(function(q){return q.length>=2&&Number.isFinite(+q[0])&&Number.isFinite(+q[1])&&Math.abs(q[0])<=180&&Math.abs(q[1])<=90}).map(function(q){return [+q[1],+q[0],q[2]==null?null:+q[2],now,null]});
+      if(a.length>1)trks.push({id:uid(),name:name||f.name,start:now,end:now,pts:a,brk:[],imported:true});
+    }
+    if(typeof k!=='undefined'&&k)$$('Placemark',k).forEach(function(pm){$$('LineString coordinates',pm).forEach(function(c){addLine(c.textContent.trim().split(/\s+/).map(function(s){return s.split(',').map(Number)}),($('name',pm)||{}).textContent)})});
+    if(typeof g!=='undefined'&&g)(g.features||[]).forEach(function(ft){var geom=ft.geometry,pr=ft.properties||{};if(!geom)return;if(geom.type==='LineString')addLine(geom.coordinates,pr.nome||pr.name);if(geom.type==='MultiLineString')geom.coordinates.forEach(function(a){addLine(a,pr.nome||pr.name)})});
+    if(!pts.length&&!trks.length)throw new Error('nessun punto né traccia trovati nel file');
+    // v4.2: le tracce e i punti importati entrano nel percorso aperto; niente doppioni se reimporti lo stesso file
+    var now=new Date().toISOString(),pc=PC.newId(),head=txt.slice(0,800),bad=/BasicAirData/i.test(head),glg=bad||/GPSLogger/i.test(head),sk=0,tg=glg?['importato','gpslogger']:['importato'];
+    var seen={};POINTS.forEach(function(p){seen[p.lat.toFixed(6)+','+p.lon.toFixed(6)+','+(p.when||'').slice(0,19)]=1});
+    pts=pts.filter(function(q){if(!isFinite(q.lat)||!isFinite(q.lon))return false;var w=q.time?new Date(q.time).toISOString():'';var k=(+q.lat).toFixed(6)+','+(+q.lon).toFixed(6)+','+w.slice(0,19);if(w&&seen[k]){sk++;return false}seen[k]=1;return true});
+    var jobs=[];trks.forEach(function(t){
+      var old=TRACKS.filter(function(o){return o.start===t.start&&Math.abs((o.pts[0]||[])[0]-t.pts[0][0])<1e-6&&Math.abs((o.pts[0]||[])[1]-t.pts[0][1])<1e-6})[0];
+      if(old){if(t.pts.length>old.pts.length){old.pts=t.pts;old.brk=t.brk;old.end=t.end;old.u=now;jobs.push(DB.put('tracks',old))}else sk++;return}
+      t.perc=pc;t.u=now;if(glg)t.src=bad?'basicairdata':'gpslogger';jobs.push(DB.put('tracks',t))});
+    var nt=jobs.length;
+    return Promise.all(pts.map(function(q){return DB.put('points',{id:uid(),cat:'altro',title:q.name||'Punto importato',sp:null,x:{},s:{},note:q.desc||'',tags:tg.slice(),when:q.time?new Date(q.time).toISOString():now,lat:+q.lat,lon:+q.lon,acc:null,alt:q.ele!=null&&q.ele!==''?Math.round(+q.ele):null,altSrc:'file importato',posSrc:glg?'annotazione '+(bad?'GPS Logger (BasicAirData)':'GPSLogger'):'file importato',gpsN:0,meteo:'',comp:SET.compilatore,media:[],perc:pc,created:now,updated:now})})).then(function(a){return Promise.all(jobs).then(function(){if(a.length||nt)markChange();if(nt)loadTracks();return {np:a.length,nm:0,nt:nt,sk:sk}})});
+  });
+}
+/* tracce GPX (per esempio registrate in background con la tua app nativa «Traccia GPS offline») */
+function gpxTracks(x,fname){var out=[];
+  $$('trk',x).forEach(function(t){var pts=[],brk=[];
+    $$('trkseg',t).forEach(function(sg,si){if(si>0&&pts.length)brk.push(pts.length);$$('trkpt',sg).forEach(function(q){var e=$('ele',q),tm=$('time',q),hd=$('hdop',q),ac=hd&&+hd.textContent>0?Math.min(50,Math.round(+hd.textContent*5)):null;pts.push([+q.getAttribute('lat'),+q.getAttribute('lon'),e&&e.textContent!==''?Math.round(+e.textContent*10)/10:null,tm?Date.parse(tm.textContent)||null:null,ac])})});
+    pts=pts.filter(function(p){return isFinite(p[0])&&isFinite(p[1])});if(pts.length<2)return;
+    var t0=pts[0][3]||Date.now();pts.forEach(function(p){if(p[3]==null)p[3]=t0});
+    var nm=null;for(var c=t.firstChild;c;c=c.nextSibling)if(c.nodeName==='name'){nm=c.textContent;break}
+    out.push({id:uid(),name:nm||String(fname||'Traccia importata').replace(/\.gpx$/i,''),start:t0,end:pts[pts.length-1][3]||t0,pts:pts,brk:brk,imported:true})});
+  return out}
+function importZipFiles(files){var dj=files['dati.json'];if(!dj)throw new Error('nello ZIP manca dati.json: non è un backup di questa app');return importData(JSON.parse(new TextDecoder().decode(dj)),files)}
+function importData(data,files){
+  if(data.app!=='lollomap-pro')throw new Error('file non riconosciuto: serve un backup LolloMap Pro 4.1 o successivo');
+  var have={};POINTS.forEach(function(p){have[p.id]=p});var res={np:0,nm:0,nt:0,sk:0},jobs=[];
+  (data.points||[]).forEach(function(p){var old=have[p.id];if(old&&(old.updated||'')>=(p.updated||'')){
+    (p.media||[]).forEach(function(m){var f=m.file&&files[m.file];if(f&&(old.media||[]).some(function(x){return x.id===m.id}))jobs.push(DB.get('media',m.id).then(function(r){if(!r){res.nm++;return DB.put('media',{id:m.id,pid:old.id,blob:new Blob([f],{type:m.mime})})}}))});
+    res.sk++;return}
+    p.media=(p.media||[]).map(function(m){var f=m.file&&files[m.file];if(f){jobs.push(DB.put('media',{id:m.id,pid:p.id,blob:new Blob([f],{type:m.mime})}));res.nm++}delete m.file;return m});
+    jobs.push(DB.put('points',p));res.np++});
+  var ht={};TRACKS.forEach(function(t){ht[t.id]=t});(data.tracks||[]).forEach(function(t){if(!ht[t.id]||tsOf(t)>tsOf(ht[t.id])){if(REC.on&&REC.trk&&REC.trk.id===t.id)return;jobs.push(DB.put('tracks',t));res.nt++}});
+  if(data.checklist){Object.keys(data.checklist).forEach(function(k){CHECK[k]=CHECK[k]||data.checklist[k]});jobs.push(saveCheck())}
+  if(data.fonti||data.diario||data.livelli)jobs.push(FON.load().then(function(){ZONA.merge(FON.lib,data.fonti);ZONA.merge(FON.dia,data.diario);ZONA.merge(FON.cl,data.livelli);FON.regLayers();return Promise.all([FON.saveLib(),FON.saveDia(),FON.saveCl()])}));
+  if(data.percorsi&&data.percorsi.length){ZONA.merge(PC.list,data.percorsi);jobs.push(PC.save(false))}
+  if(data.luoghi&&data.luoghi.length){ZONA.merge(PL.list,data.luoghi);jobs.push(PL.save())}
+  return Promise.all(jobs).then(function(){return data.offline?ZONA.restore(data.offline,files):null}).then(function(){return PL.apply({})}).then(function(){if(data.mapState&&window.parent!==window&&window.parent.PRO)window.parent.PRO.restore(data.mapState);return res});
+}
+$('#fImp').onchange=function(){var f=this.files[0];if(!f)return;toast('Importo '+f.name+'…',6000);importFile(f).then(function(r){thumbCache={};return Promise.all([loadPoints(),loadTracks()]).then(function(){alert('Importazione completata.\n\nPunti nuovi o aggiornati: '+r.np+'\nFoto/audio: '+r.nm+'\nTracce: '+r.nt+(r.sk?'\nGià presenti (saltati): '+r.sk:''))})}).catch(function(e){alert('Importazione non riuscita: '+e.message)})};

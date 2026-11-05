@@ -1,0 +1,3 @@
+:root[data-theme="dark"]{--bg:#080c14;--panel:#111927;--panel2:#182538;--field:#080c14;--line:#2b4059;--line2:#24364a;--txt:#e8f4ff;--mut:#adc3d9;--acc:#43f5ed;--onacc:#061218;--accsoft:#14343e;--link:#43f5ed;--nav:#080c14;--glass:#111927f5;--bad:#ff829c}
+.pro-embedded nav#nav,.pro-embedded #top,.pro-embedded #mapbtns,.pro-embedded #fabAdd,.pro-embedded #coord,.pro-embedded #compass,.pro-embedded #spArrow,.pro-embedded #spChip{display:none!important}
+.pro-embedded{--navh:0px}.pro-embedded .ph{border-bottom:1px solid #43f5ed55}.pro-campo-tools{padding:8px 0}
