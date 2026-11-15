@@ -3679,7 +3679,7 @@ const PREDEF = {
   etichette: true, nord: true, barra: true, didascalia: true, titolo: '',
   gpxCol: '#e30613', gpxSp: 0.8, centro: [45.32, 7.45], zoomVista: 8, fisso: false, personali: [],
   legenda: true, legendaImg: false, poiStampa: true, poiNomi: true, aperti: {},
-  navVoce: true, navSoglia: 40, navAccMax: 50, offViste: true, navVicini: true, navRaggio: 150, navBuio: true, navMargine: 30, meteoOn: true,
+  navVoce: true, navSoglia: 40, navAccMax: 50, navTracciaCol: '#53f5a4', navTracciaSp: 5, offViste: true, navVicini: true, navRaggio: 150, navBuio: true, navMargine: 30, meteoOn: true,
   profiloBR: 'hiking-mountain', seguiSentieri: true, pend25: false, pendEsp: {},
   passoCAI: 'medio', profilo: true, kmTraccia: true, quoteDem: false, atlAuto: true, atlQuadro: true, atlSovr: 10,
   treNord: true, romer: false, sole: true, dataUscita: '', segni: [], modelli: [],
@@ -5501,7 +5501,7 @@ const nav = {
   attivo: false, segui: true, watch: null, wake: null, kalman: new FiltroKalman(3), pos: null, bussola: null, ultimoFix: 0,
   reg: { id: null, stato: 'ferma', punti: [], ms: 0, ripresa: 0, dist: 0, su: 0, giu: 0, zf: null },
   guida: null, meta: null, sceltaMeta: false,
-  marcatore: null, cerchio: null, lineaReg: null, lineaMeta: null, velocita: []
+  marcatore: null, cerchio: null, lineaReg: null, lineaMeta: null, velocita: [], dettagli: false, menu: false
 };
 
 /* ---------- Interfaccia ---------- */
@@ -5512,18 +5512,23 @@ function htmlNavigatore() {
     <div id="nav-avviso"></div>
     <div id="nav-guida" class="tile" hidden></div>
     <div id="nav-meta" class="tile" hidden></div>
-    <div class="nav-tiles" id="nav-tiles"></div>
+    <div id="nav-extra-stats" hidden></div>
   </div>
   <div id="nav-bottom">
     <canvas id="nav-profilo" width="900" height="150" hidden></canvas>
-    <div class="nav-btns">
-      <button id="nav-reg">⏺ Registra</button>
-      <button id="nav-stop" class="sec">⏹ Stop</button>
-      <button id="nav-segui">🎯 Segui</button>
-      <button id="nav-guidabtn" class="sec">🧭 Guida</button>
+    <div class="nav-tiles" id="nav-tiles"></div>
+    <button id="nav-expand" type="button" aria-expanded="false" title="Mostra tutti i dati">⌃</button>
+    <div class="nav-btns" aria-label="Comandi registrazione">
+      <button id="nav-segui" class="nav-tool"><i>◎</i><span>Segui</span></button>
+      <button id="nav-guidabtn" class="nav-tool sec"><i>⌁</i><span>Guida</span></button>
+      <button id="nav-reg" class="nav-record"><i>●</i><span>Avvia</span></button>
+      <button id="nav-stop" class="nav-tool nav-stop sec"><i>■</i><span>Stop</span></button>
+      <button id="nav-more" class="nav-tool sec" aria-expanded="false"><i>•••</i><span>Altro</span></button>
+    </div>
+    <div id="nav-more-panel" hidden>
       <button id="nav-torna" class="sec">↩ Torna a…</button>
-      <button id="nav-sos" style="background:#c62828">🆘 SOS</button>
-      <button id="nav-opz" class="sec">⚙️</button>
+      <button id="nav-sos">🆘 SOS</button>
+      <button id="nav-opz" class="sec">⚙️ Opzioni</button>
       <button id="nav-esci" class="sec">✕ Esci</button>
     </div>
   </div>
@@ -5676,23 +5681,37 @@ function aggiornaBarra(accScartata) {
   const tempo = r.ms + (r.stato === 'attiva' ? Date.now() - r.ripresa : 0);
   const b = S.navBuio ? calcolaBuio() : null;
   const tiles = [
-    ['⏱ Tempo', r.stato === 'ferma' && !r.punti.length ? '—' : hms(tempo), b ? `🌅 ${ora(b.tramonto)}${b.tipo !== 'solo' ? ` <span style="color:${b.margine < 0 ? '#c62828' : b.margine < 18e5 ? '#ef6c00' : '#2e7d32'}">${b.margine < 0 ? '−' : '+'}${durata(Math.abs(b.margine) / 3600e3)}</span>` : ''}` : ''],
-    ['📏 Percorsi', r.punti.length ? metri(r.dist) : '—'],
-    ['🚶 Velocità', vel != null ? fmt(vel, 1) + ' km/h' : '—'],
-    ['⛰ Quota', quotaAttuale() != null ? fmt(quotaAttuale()) + ' m' : '—'],
-    ['↗ Salita', r.punti.length ? '+' + fmt(r.su) + ' m' : '—'],
-    ['🎯 Precisione', p ? '±' + fmt(p.acc) + ' m' + (nav.sat && nav.sat[0] >= 0 ? ` · 🛰 ${nav.sat[0]}/${nav.sat[1]}` : '') + (accScartata ? ` (ultimo ±${fmt(accScartata)})` : '') : '…']
+    ['Distanza', r.punti.length ? metri(r.dist) : '0 m'],
+    ['Tempo', r.stato === 'ferma' && !r.punti.length ? '0:00:00' : hms(tempo)],
+    ['Punti GPS', String(r.punti.length)]
   ];
-  $('#nav-tiles').innerHTML = tiles.map(([k, v, n]) => `<div class="tile"><small>${k}</small><b>${v}</b>${n ? `<small>${n}</small>` : ''}</div>`).join('');
+  $('#nav-tiles').innerHTML = tiles.map(([k, v]) => `<div class="tile"><small>${k}</small><b>${v}</b></div>`).join('');
+  $('#nav-extra-stats').innerHTML = `
+    <span>🚶 ${vel != null ? fmt(vel, 1) + ' km/h' : '—'}</span>
+    <span>⛰ ${quotaAttuale() != null ? fmt(quotaAttuale()) + ' m' : '—'}</span>
+    <span>↗ +${r.punti.length ? fmt(r.su) : '0'} m</span>
+    <span>🎯 ${p ? '±' + fmt(p.acc) + ' m' : '…'}</span>
+    ${b ? `<span>🌅 ${ora(b.tramonto)}</span>` : ''}
+    ${nav.sat && nav.sat[0] >= 0 ? `<span>🛰 ${nav.sat[0]}/${nav.sat[1]}</span>` : ''}
+    ${accScartata ? `<span class="warn">Fix scartato ±${fmt(accScartata)} m</span>` : ''}`;
   const reg = $('#nav-reg');
-  reg.textContent = r.stato === 'attiva' ? '⏸ Pausa' : r.stato === 'pausa' ? '▶ Riprendi' : '⏺ Registra';
-  reg.style.background = r.stato === 'attiva' ? '#ef6c00' : '';
-  $('#nav-segui').className = nav.segui ? '' : 'sec';
-  $('#nav-guidabtn').className = nav.guida ? '' : 'sec';
+  reg.querySelector('i').textContent = r.stato === 'attiva' ? 'Ⅱ' : '●';
+  reg.querySelector('span').textContent = r.stato === 'attiva' ? 'Pausa' : r.stato === 'pausa' ? 'Riprendi' : 'Avvia';
+  reg.classList.toggle('recording', r.stato === 'attiva');
+  $('#nav-segui').classList.toggle('off', !nav.segui);
+  $('#nav-guidabtn').classList.toggle('off', !nav.guida);
   document.body.style.setProperty('--navb', ($('#nav-bottom').offsetHeight + 12) + 'px');
 }
 
 /* ---------- Registrazione ---------- */
+function stileLineaRegistrazione() {
+  const colore = /^#[0-9a-f]{6}$/i.test(S.navTracciaCol || '') ? S.navTracciaCol : '#53f5a4';
+  const spessore = Math.min(10, Math.max(2, +S.navTracciaSp || 5));
+  return { color: colore, weight: spessore, opacity: 0.96, lineCap: 'round', lineJoin: 'round', interactive: false };
+}
+function aggiornaStileLineaRegistrazione() {
+  if (nav.lineaReg) { nav.lineaReg.setStyle(stileLineaRegistrazione()); nav.lineaReg.bringToFront(); }
+}
 function aggiungiPuntoReg() {
   const r = nav.reg, p = nav.pos, u = r.punti[r.punti.length - 1];
   const d = u ? distanza([u[0], u[1]], [p.lat, p.lon]) : 0;
@@ -5704,7 +5723,7 @@ function aggiungiPuntoReg() {
     const nz = Math.min(Math.max(r.zf, p.alt - 5), p.alt + 5), dz = nz - r.zf;
     if (dz > 0) r.su += dz; else r.giu -= dz; r.zf = nz;
   }
-  if (!nav.lineaReg) nav.lineaReg = L.polyline([], { color: '#1565c0', weight: 4, opacity: 0.9 }).addTo(mappa);
+  if (!nav.lineaReg) nav.lineaReg = L.polyline([], stileLineaRegistrazione()).addTo(mappa);
   nav.lineaReg.addLatLng([p.lat, p.lon]);
   salvaRegistrazione();
   if (window.PRO) PRO.broadcastRecording();
@@ -5720,7 +5739,7 @@ function caricaRegistrazione() {
     const r = JSON.parse(localStorage.getItem(CHIAVE + '.reg') || 'null');
     if (!r || !r.punti || !r.punti.length) return;
     Object.assign(nav.reg, r, { stato: 'pausa' });
-    nav.lineaReg = L.polyline(r.punti.map((x) => [x[0], x[1]]), { color: '#1565c0', weight: 4, opacity: 0.9 }).addTo(mappa);
+    nav.lineaReg = L.polyline(r.punti.map((x) => [x[0], x[1]]), stileLineaRegistrazione()).addTo(mappa);
   } catch (e) {}
 }
 function tastoRegistra() {
@@ -5953,6 +5972,15 @@ function tastoSOS() {
 /* ---------- Opzioni ---------- */
 function tastoOpzioni() {
   const corpo = modale('⚙️ Navigatore', `
+    <fieldset class="nav-track-style"><legend>Linea della registrazione</legend>
+      <div class="riga"><label for="no-traccia-col">Colore</label><input type="color" id="no-traccia-col" value="${esc(S.navTracciaCol || '#53f5a4')}">
+      <label for="no-traccia-sp">Spessore <output id="no-traccia-sp-v">${Math.min(10, Math.max(2, +S.navTracciaSp || 5))} px</output></label></div>
+      <input type="range" id="no-traccia-sp" min="2" max="10" step="1" value="${Math.min(10, Math.max(2, +S.navTracciaSp || 5))}">
+      <div class="nav-colori" aria-label="Colori rapidi">
+        ${['#53f5a4','#00e5ff','#ffc857','#ff6b6b','#ff2daa','#ffffff'].map((c) => `<button type="button" data-line-color="${c}" style="--line-color:${c}" aria-label="Usa il colore ${c}"></button>`).join('')}
+      </div>
+      <div class="info">La linea mostra in tempo reale il percorso già registrato. Colore e spessore restano memorizzati.</div>
+    </fieldset>
     <label class="ck"><input type="checkbox" id="no-voce" ${S.navVoce ? 'checked' : ''}> Avvisi a voce</label>
     <label for="no-soglia">Avviso «fuori percorso» oltre</label>
     <select id="no-soglia">${[25, 40, 60, 100].map((v) => `<option value="${v}" ${+S.navSoglia === v ? 'selected' : ''}>${v} m</option>`).join('')}</select>
@@ -5965,6 +5993,15 @@ function tastoOpzioni() {
     <button id="no-prova" class="sec" style="width:100%;margin-top:10px">🔊 Prova la voce</button>
     <div class="info">Il GPS del browser funziona solo con l'app aperta: lo schermo resta acceso finché sei nel navigatore. Chiudi le altre app che usano il GPS per risparmiare batteria.</div>`);
   corpo.querySelector('#no-voce').onchange = (e) => { S.navVoce = e.target.checked; salva(); };
+  const cambiaLinea = () => {
+    S.navTracciaCol = corpo.querySelector('#no-traccia-col').value;
+    S.navTracciaSp = +corpo.querySelector('#no-traccia-sp').value;
+    corpo.querySelector('#no-traccia-sp-v').value = S.navTracciaSp + ' px';
+    salva(); aggiornaStileLineaRegistrazione();
+  };
+  corpo.querySelector('#no-traccia-col').oninput = cambiaLinea;
+  corpo.querySelector('#no-traccia-sp').oninput = cambiaLinea;
+  corpo.querySelectorAll('[data-line-color]').forEach((b) => { b.onclick = () => { corpo.querySelector('#no-traccia-col').value = b.dataset.lineColor; cambiaLinea(); }; });
   corpo.querySelector('#no-soglia').onchange = (e) => { S.navSoglia = +e.target.value; salva(); };
   corpo.querySelector('#no-acc').onchange = (e) => { S.navAccMax = +e.target.value; salva(); };
   corpo.querySelector('#no-vicini').onchange = (e) => { S.navVicini = e.target.checked; salva(); };
@@ -6072,6 +6109,21 @@ function avviaNavigatore() {
   $('#nav-segui').onclick = () => { nav.segui = !nav.segui; if (nav.segui && nav.pos) mappa.panTo([nav.pos.lat, nav.pos.lon]); aggiornaBarra(); };
   $('#nav-guidabtn').onclick = tastoGuida; $('#nav-torna').onclick = tastoTorna; $('#nav-sos').onclick = tastoSOS;
   $('#nav-opz').onclick = tastoOpzioni; $('#nav-esci').onclick = esciNavigatore; $('#nm-chiudi').onclick = chiudiModale;
+  $('#nav-expand').onclick = () => {
+    nav.dettagli = !nav.dettagli;
+    $('#nav-extra-stats').hidden = !nav.dettagli;
+    $('#nav-expand').textContent = nav.dettagli ? '⌄' : '⌃';
+    $('#nav-expand').setAttribute('aria-expanded', String(nav.dettagli));
+    document.body.classList.toggle('nav-expanded', nav.dettagli);
+    aggiornaBarra();
+  };
+  $('#nav-more').onclick = () => {
+    nav.menu = !nav.menu;
+    $('#nav-more-panel').hidden = !nav.menu;
+    $('#nav-more').setAttribute('aria-expanded', String(nav.menu));
+    document.body.classList.toggle('nav-more-open', nav.menu);
+    aggiornaBarra();
+  };
   mappa.on('dragstart', () => { if (nav.attivo && nav.segui) { nav.segui = false; aggiornaBarra(); } });
   const Ctl = L.Control.extend({ onAdd() { const b = L.DomUtil.create('button', 'btn-naviga'); b.textContent = '🧭 Naviga'; L.DomEvent.disableClickPropagation(b); b.onclick = entraNavigatore; return b; } });
   new Ctl({ position: 'topright' }).addTo(mappa);

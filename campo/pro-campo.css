@@ -1,3 +1,46 @@
 :root[data-theme="dark"]{--bg:#080c14;--panel:#111927;--panel2:#182538;--field:#080c14;--line:#2b4059;--line2:#24364a;--txt:#e8f4ff;--mut:#adc3d9;--acc:#43f5ed;--onacc:#061218;--accsoft:#14343e;--link:#43f5ed;--nav:#080c14;--glass:#111927f5;--bad:#ff829c}
 .pro-embedded nav#nav,.pro-embedded #top,.pro-embedded #mapbtns,.pro-embedded #fabAdd,.pro-embedded #coord,.pro-embedded #compass,.pro-embedded #spArrow,.pro-embedded #spChip{display:none!important}
 .pro-embedded{--navh:0px}.pro-embedded .ph{border-bottom:1px solid #43f5ed55}.pro-campo-tools{padding:8px 0}
+
+/* 4.3.2 — stesso sistema a barre flottanti della mappa principale. */
+.pro-embedded{
+  --dock:#07101b;--dock2:#0f182d;--dockline:#43f5ed80;--dockshadow:0 7px 24px rgba(0,0,0,.46)
+}
+:root[data-theme="light"] .pro-embedded{
+  --dock:#fff;--dock2:#edf3f6;--dockline:#08767d99;--dockshadow:0 7px 22px rgba(16,44,58,.20)
+}
+.pro-embedded .page{background:var(--bg)}
+.pro-embedded .ph{
+  margin:8px;padding:calc(env(safe-area-inset-top) + 7px) 10px 8px;
+  border:1px solid var(--dockline);border-radius:15px;background:var(--dock);box-shadow:var(--dockshadow)
+}
+.pro-embedded .ph h2{font-size:18px;color:var(--txt)}
+.pro-embedded .card,
+.pro-embedded details.sec,
+.pro-embedded #recAsk .ra{
+  border:1px solid var(--line);border-radius:14px;background:var(--dock);box-shadow:0 3px 12px rgba(0,0,0,.20)
+}
+.pro-embedded .card:focus-within,.pro-embedded details.sec[open]{border-color:var(--dockline)}
+.pro-embedded .btn{
+  min-height:40px;padding:7px 11px;border:1px solid var(--dockline);border-radius:11px;
+  background:var(--dock2);color:var(--txt);box-shadow:none
+}
+.pro-embedded .btn.f{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+.pro-embedded .btn.r{border-color:var(--bad);color:var(--bad)}
+.pro-embedded input,.pro-embedded select,.pro-embedded textarea{
+  border:1px solid var(--line);border-radius:11px;background:var(--dock2);color:var(--txt)
+}
+.pro-embedded input:focus,.pro-embedded select:focus,.pro-embedded textarea:focus{outline:2px solid var(--acc);outline-offset:1px}
+.pro-embedded #mhead,.pro-embedded #mfoot{
+  margin:7px;padding:7px;border:1px solid var(--dockline);border-radius:13px;background:var(--dock);box-shadow:var(--dockshadow)
+}
+.pro-embedded #mhead{position:sticky;top:0;z-index:3}
+.pro-embedded #mbox{border:1px solid var(--dockline);border-radius:18px;background:var(--bg);box-shadow:var(--dockshadow)}
+.pro-embedded #toast,.pro-embedded #nearBar,.pro-embedded #tmBar,.pro-embedded #pickbar,.pro-embedded #novBar{
+  border:1px solid var(--dockline);border-radius:14px;background:var(--dock);box-shadow:var(--dockshadow)
+}
+.pro-embedded .pro-campo-tools{
+  display:flex;gap:6px;padding:6px;border:1px solid var(--dockline);border-radius:14px;background:var(--dock);box-shadow:var(--dockshadow)
+}
+.pro-embedded .pro-campo-tools .btn{flex:1;min-width:0}
+@media(max-width:380px){.pro-embedded .ph{margin:6px}.pro-embedded .card{margin:6px 0}.pro-embedded .btn{font-size:12.5px;padding:6px 8px}}

@@ -5,7 +5,7 @@ const wrap360=n=>((n%360)+360)%360;
 function proBearing(a,b){const r=Math.PI/180,p=a[0]*r,q=b[0]*r,d=(b[1]-a[1])*r;return wrap360(Math.atan2(Math.sin(d)*Math.cos(q),Math.cos(p)*Math.sin(q)-Math.sin(p)*Math.cos(q)*Math.cos(d))/r)}
 function proValid(p){return Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=90&&Math.abs(p[1])<=180}
 const proEl=id=>document.getElementById(id);
-const PRO_VERSION='4.3.0',PRO_DATA_SCHEMA='4.1.0',PRO_RESET='lollomap-pro.data-reset-'+PRO_DATA_SCHEMA,PRO_OUTBOX='lollomap-pro.outbox',PRO_THEME='lollomap-pro.theme';
+const PRO_VERSION='4.3.2',PRO_DATA_SCHEMA='4.1.0',PRO_RESET='lollomap-pro.data-reset-'+PRO_DATA_SCHEMA,PRO_OUTBOX='lollomap-pro.outbox',PRO_THEME='lollomap-pro.theme';
 PRO.version=PRO_VERSION;
 function proLegacySettings(){return new Promise(resolve=>{if(!('indexedDB'in window))return resolve(null);let q;try{q=indexedDB.open('atlante_lago_piccolo')}catch(e){return resolve(null)}q.onerror=()=>resolve(null);q.onupgradeneeded=()=>{};q.onsuccess=()=>{const d=q.result;if(!d.objectStoreNames.contains('kv')){d.close();return resolve(null)}try{const tx=d.transaction('kv','readonly'),g=tx.objectStore('kv').get('settings');g.onsuccess=()=>{d.close();resolve(g.result&&g.result.v||null)};g.onerror=()=>{d.close();resolve(null)}}catch(e){d.close();resolve(null)}}})}
 const proResetPromise=(async()=>{

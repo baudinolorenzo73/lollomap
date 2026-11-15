@@ -1,5 +1,20 @@
 # Verifica LolloMap Pro 4.1.0
 
+## Estensione 4.3.1
+
+- Verificato: sintassi di `pro.js` e di tutti gli script incorporati in `index.html`.
+- Verificato: linea di registrazione creata e ripristinata con le preferenze `navTracciaCol` e `navTracciaSp`.
+- Verificato: controlli per colore, spessore, dati espandibili e menu secondario.
+- Verificato: manifest, service worker e percorsi relativi compatibili con GitHub Pages.
+- Da verificare sul telefono: GPS reale e resa grafica completa; il browser grafico non è avviabile nell'ambiente di prova.
+
+## Estensione 4.3.2
+
+- Verificato: token e componenti condivisi per tema scuro e chiaro.
+- Verificato: mappa, menu, pannello, viste a tutto schermo, modali e Campo ricevono lo stesso stile flottante.
+- Verificato: nessun identificatore o gestore JavaScript è stato rimosso.
+- Da verificare sul telefono: resa visiva reale, tastiera, rotazione e ingrandimento caratteri.
+
 ## Automatico
 
 - sintassi degli script radice e dei moduli Campo;
