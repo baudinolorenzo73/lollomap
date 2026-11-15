@@ -2,7 +2,7 @@
    by Lollo ®2026 · i moduli si caricano nell'ordine dei numeri (vedi index.html) */
 'use strict';
 /* =================== CONDIVISIONE / DOWNLOAD =================== */
-function download(blob,name){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove()},4000)}
+function download(blob,name){if(window.parent!==window&&window.parent.PRO&&window.parent.PRO.saveBlob&&window.parent.PRO.saveBlob(blob,name))return;var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove()},4000)}
 function shareOrDownload(blob,name,title){
   try{var f=new File([blob],name,{type:blob.type||'application/octet-stream'});if(navigator.canShare&&navigator.canShare({files:[f]}))return navigator.share({files:[f],title:title||name}).then(function(){return true}).catch(function(e){if(e.name==='AbortError')return false;download(blob,name);return true})}catch(e){}
   download(blob,name);return Promise.resolve(true);
