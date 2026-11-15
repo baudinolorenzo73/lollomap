@@ -1,17 +1,11 @@
-# Attività
+# Attività 4.1
 
-- [x] Integrare la PWA 4.3.0 negli asset Android.
-- [x] Aggiornare nome e numero versione.
-- [x] Integrare bussola nativa e posizione nella schermata azimut.
-- [x] Aggiungere permessi runtime per audio e fotocamera.
-- [x] Inoltrare i download Campo al salvataggio Android.
-- [x] Preparare compilazione Windows e GitHub Actions.
-- [ ] Provare l’APK su dispositivo fisico e verificare l’accesso Google Drive.
-- [x] Rendere la mappa prioritaria su telefono con pannello a cassetto.
-- [x] Raccogliere i comandi principali in un unico menu compatto.
-- [x] Correggere e memorizzare i temi giorno/notte.
-- [x] Compattare dati GPS e pulsanti del Navigatore senza ridurre l’area tattile sotto 44 px.
-- [x] Sostituire la testata mobile con HUD a due riquadri e controlli flottanti.
-- [x] Organizzare le funzioni in un menu laterale ispirato alla gerarchia di OsmAnd.
-- [x] Rendere il pannello strumenti un cassetto laterale senza perdere funzioni.
-- [ ] Verificare sullo Xiaomi 13T Pro la leggibilità del nuovo HUD al sole e con guanti.
+- [x] Definire archivio unico e politica di pulizia dei dati di prova.
+- [x] Migrare soltanto impostazioni, ID client e chiavi API.
+- [x] Rinominare il database in `lollomap_pro`.
+- [x] Collegare i comandi Campo al registratore del Navigatore.
+- [x] Archiviare automaticamente le tracce fermate con coda di sicurezza.
+- [x] Eliminare il service worker e il manifest secondari durante l'uso integrato.
+- [x] Aggiornare backup, importazione e cartella Google Drive a LolloMap Pro.
+- [x] Aggiornare versione, documentazione e test automatici.
+- [ ] Collaudo fisico su telefono: GPS, sensori bussola, installazione, riapertura offline e sincronizzazione Drive.

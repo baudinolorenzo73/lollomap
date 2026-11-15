@@ -1,25 +1,23 @@
-# Specifica Android 4.3.0
+# LolloMap Pro 4.1 — unificazione dati e registrazione
 
-## Obiettivo
+Un solo pacchetto, una sola PWA, un solo service worker e un solo archivio operativo `lollomap_pro` per punti, media, tracce, diario, luoghi e impostazioni Campo. Il Navigatore della mappa è l'unico registratore GPS: i comandi della sezione Campo lo controllano e le tracce concluse vengono archiviate automaticamente.
 
-Produrre un progetto Android compilabile che incorpori LolloMap Pro 4.3.0, funzioni offline dopo l’installazione e mantenga online soltanto i servizi esterni.
+## Requisiti
 
-## Requisiti verificabili
+1. Conservare mappe, navigazione, pianificazione, stampa georiferita, vettori, rilievo 3D, catalogo naturalistico, strumenti Campo, bussola e azimut.
+2. Eliminare al primo avvio i punti, le tracce, le mappe offline e gli archivi di prova delle versioni precedenti.
+3. Conservare, quando leggibili, preferenze, ID client Google e chiavi API del vecchio archivio.
+4. Usare il database `lollomap_pro`; nessuna importazione automatica dei dati legacy.
+5. Usare soltanto il registratore del Navigatore. Una traccia fermata deve entrare nell'archivio comune senza esportazioni manuali.
+6. Usare un solo service worker, quello alla radice. Il modulo Campo non deve registrarne uno proprio quando è incorporato.
+7. Backup completo nel formato LolloMap Pro; configurazione sensibile esportabile separatamente con password.
+8. Restare installabile da GitHub Pages e utilizzabile offline dopo il primo caricamento; i servizi remoti richiedono rete.
 
-- Il progetto genera un APK debug con Gradle e Java 17.
-- La pagina iniziale è caricata dagli asset interni via HTTPS locale.
-- GPS e bussola nativi alimentano navigazione, bussola a tutto schermo e azimut.
-- Esportazioni e backup vengono salvati nella cartella Download del telefono.
-- Microfono, fotocamera e posizione vengono richiesti solo quando usati.
-- Il pacchetto rimane `it.lollo.stampamappe`.
-- Nessuna chiave API, password o chiave di firma è inclusa nel progetto.
+## Accettazione
 
-## Interfaccia 4.3 ispirata alla struttura di OsmAnd
-
-- Su telefono la mappa occupa l'intero schermo; nome e profilo sono nel menu laterale.
-- Il menu principale scorre da sinistra e ordina le funzioni per attività, senza usare marchi o risorse grafiche di terzi.
-- Due riquadri opachi mostrano quota e stato/distanza della registrazione; i controlli mappa sono flottanti sui bordi.
-- Il pannello completo scorre da sinistra e conserva tutte le funzioni avanzate precedenti.
-- Giorno e notte hanno contrasto completo, includono i controlli Leaflet e vengono ricordati.
-- I dati salvati e lo schema dell’archivio 4.1 non vengono azzerati dall’aggiornamento grafico.
-- In modalità Navigatore i sei dati sono compatti, opachi e scorrono orizzontalmente due alla volta.
+- Il primo avvio 4.1 imposta il marcatore di reset e rimuove gli archivi di prova una sola volta.
+- Il database aperto dal Catalogo si chiama `lollomap_pro`.
+- I pulsanti registra di Mappa e Campo comandano lo stesso stato GPS.
+- Stop archivia la traccia; Cancella la rimuove anche dall'archivio comune.
+- Nessun manifest o service worker secondario viene attivato dal modulo Campo incorporato.
+- Test sintattici, test azimut, controlli PWA e ZIP superano.

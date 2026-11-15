@@ -1,0 +1,19 @@
+LOLLOMAP PRO WEB 4.3.0 — PUBBLICAZIONE SU GITHUB
+
+Questo è il pacchetto web/PWA, distinto dal progetto Android.
+
+Con il programma Pubblica:
+1. Seleziona questo ZIP.
+2. Scegli il repository, per esempio udinolorenzo73/LolloMap-Pro.
+3. Conserva i workflow già pubblicati.
+4. Se richiesto, usa il contenuto della cartella.
+5. Non usare «Rendi il sito installabile»: manifest e service worker sono già pronti.
+6. Controlla l'anteprima e pubblica.
+
+Pagina prevista:
+https://udinolorenzo73.github.io/LolloMap-Pro/index.html
+
+Il primo avvio richiede Internet. Dopo l'installazione l'interfaccia funziona offline;
+servizi esterni, meteo, PlantNet, AI e mappe non scaricate richiedono la rete.
+
+Prima di cambiare origine o reinstallare, esporta un backup completo dall'app.

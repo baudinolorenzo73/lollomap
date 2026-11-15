@@ -1,7 +1,14 @@
-# Piano
+# Piano tecnico 4.1
 
-1. Riutilizzare il contenitore Android collaudato della versione precedente.
-2. Sostituire gli asset web con LolloMap Pro 4.1.0.
-3. Collegare bussola, GPS, permessi multimediali ed esportazioni ai servizi Android.
-4. Aggiornare versione, nome, documentazione e compilazione automatica.
-5. Verificare sorgenti, asset, archivio ZIP e assenza di segreti.
+- Mantenere la shell cartografica esistente per non rischiare regressioni su stampa, 3D, mappe e navigazione.
+- Rendere `lollomap_pro` l'archivio persistente comune del modulo Catalogo/Campo.
+- All'avvio iniziale leggere soltanto `kv/settings` dal vecchio database, quindi cancellare database, cache e dati geografici legacy. Trasferire le impostazioni al nuovo database alla prima apertura del modulo Campo.
+- Inoltrare i comandi di registrazione Campo al Navigatore tramite il ponte same-origin già verificato.
+- Convertire la registrazione del Navigatore nel formato traccia comune e accodarla finché il database non conferma il salvataggio.
+- Rinominare backup e cartella Drive in LolloMap Pro. Non importare automaticamente la vecchia cartella Drive.
+- Disabilitare manifest e registrazione service worker secondari nel modulo incorporato; il service worker radice precache tutti i file.
+- Incrementare versione e cache a 4.1.0, eseguire verifiche statiche, test applicativi esistenti e controllo ZIP.
+
+## Ripristino
+
+La 4.0.0 resta recuperabile dal precedente ZIP. La 4.1.0 è intenzionalmente incompatibile con i dati di prova legacy; la configurazione cifrata `.atlcfg` resta importabile.
