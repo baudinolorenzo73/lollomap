@@ -12,19 +12,19 @@
   "theme_color": "#080c14",
   "icons": [
     {
-      "src": "icone/icona-192.png",
+      "src": "icone/oltre-il-sentiero-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icone/icona-512.png",
+      "src": "icone/oltre-il-sentiero-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icone/icona-maskable-512.png",
+      "src": "icone/oltre-il-sentiero-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

@@ -1,4 +1,4 @@
-LOLLOMAP PRO WEB 4.3.2 — PUBBLICAZIONE SU GITHUB
+LOLLOMAP PRO WEB 4.3.4 — PUBBLICAZIONE SU GITHUB
 
 Questo è il pacchetto web/PWA, distinto dal progetto Android.
 

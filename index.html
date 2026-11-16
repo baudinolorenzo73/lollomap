@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#2f5d3a">
-<link rel="icon" type="image/png" href="icone/icona-192.png">
-<link rel="apple-touch-icon" href="icone/icona-192.png">
+<link rel="icon" type="image/png" href="icone/oltre-il-sentiero-192.png">
+<link rel="apple-touch-icon" href="icone/oltre-il-sentiero-192.png">
 <script src="versione.js"></script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -3854,8 +3854,22 @@ function aggiornaStrati() {
   for (const st of sovrDisponibili()) if (S.sovr[st.id]) stratiSovr[st.id] = creaStratoLeaflet(st).addTo(mappa);
   if (traccia.layer) traccia.layer.bringToFront();
 }
-const riquadro = L.rectangle([[0, 0], [0, 0]], { color: '#d0342c', weight: 2, fillOpacity: 0.06, interactive: false }).addTo(mappa);
-const croce = L.circleMarker(S.centro, { radius: 4, color: '#d0342c', weight: 2, fillOpacity: 1, interactive: false }).addTo(mappa);
+const riquadro = L.rectangle([[0, 0], [0, 0]], { color: '#d0342c', weight: 2, fillOpacity: 0.06, interactive: false });
+const croce = L.circleMarker(S.centro, { radius: 4, color: '#d0342c', weight: 2, fillOpacity: 1, interactive: false });
+let riquadroVisibile = false;
+
+function aggiornaVisibilitaRiquadro() {
+  const mostra = riquadroVisibile && !(typeof nav !== 'undefined' && nav.attivo);
+  for (const livello of [riquadro, croce]) {
+    if (mostra && !mappa.hasLayer(livello)) livello.addTo(mappa);
+    if (!mostra && mappa.hasLayer(livello)) mappa.removeLayer(livello);
+  }
+  document.dispatchEvent(new CustomEvent('lollomap:riquadro', { detail: { visible: mostra } }));
+}
+function impostaRiquadroVisibile(mostra) {
+  riquadroVisibile = !!mostra;
+  aggiornaVisibilitaRiquadro();
+}
 
 mappa.on('move', () => {
   if (!S.fisso && !(typeof nav !== 'undefined' && nav.attivo)) { const c = mappa.getCenter(); S.centro = [c.lat, c.lng]; aggiornaRiquadro(); }
@@ -5581,7 +5595,7 @@ function esciNavigatore() {
   if (nav.watch != null) { navigator.geolocation.clearWatch(nav.watch); nav.watch = null; }
   if (nav.reg.stato === 'attiva') { pausaRegistrazione(); }
   schermoAcceso(false);
-  riquadro.addTo(mappa); croce.addTo(mappa);
+  aggiornaVisibilitaRiquadro();
   setTimeout(() => { mappa.invalidateSize(); aggiornaRiquadro(); }, 50);
 }
 let uscitaConfermata = 0;
@@ -7040,6 +7054,5 @@ aggiornaRiquadro();
 <script src="rilievo3d.js"></script>
 <script src="pwa.js"></script>
 <script src="pro.js"></script>
-<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});</script>
 </body>
 </html>

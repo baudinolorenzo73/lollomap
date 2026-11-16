@@ -1,3 +1,3 @@
 /* Numero di versione: è L'UNICO posto in cui va cambiato.
    Lo leggono la pagina e il service worker. by Lollo ®2026 */
-self.VERSIONE = '4.3.2';
+self.VERSIONE = '4.3.4';

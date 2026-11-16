@@ -15,6 +15,20 @@
 - Il tema giorno conserva la stessa struttura usando superfici bianche, testo scuro e bordi petrolio.
 - Nessun comando o dato viene eliminato; cambia soltanto la presentazione.
 
+## Estensione 4.3.3 — mappa libera e comandi unici
+
+- Il riquadro rosso di stampa è nascosto all'avvio e si mostra soltanto dal pulsante rettangolare.
+- Il comando REG duplicato nell'HUD è rimosso; la registrazione si apre dal pulsante rosso in basso a sinistra.
+- La bussola è disponibile direttamente nella barra superiore della mappa.
+- Il pulsante 3D non occupa più la colonna dei comandi mappa; la funzione avanzata resta nel menu strumenti.
+
+## Estensione 4.3.4 — identità e aggiornamenti
+
+- L'icona installabile usa il logo ufficiale «Oltre il Sentiero — con Lollo» in formati PWA normale e maskable.
+- Il menu mostra sempre il numero di versione installato.
+- Il comando unico «Installa e aggiorna» installa la PWA quando Chrome lo consente, applica un aggiornamento già pronto oppure controlla se ne esiste uno nuovo.
+- I comandi di installazione e aggiornamento non occupano più una barra flottante sopra la mappa.
+
 Un solo pacchetto, una sola PWA, un solo service worker e un solo archivio operativo `lollomap_pro` per punti, media, tracce, diario, luoghi e impostazioni Campo. Il Navigatore della mappa è l'unico registratore GPS: i comandi della sezione Campo lo controllano e le tracce concluse vengono archiviate automaticamente.
 
 ## Requisiti

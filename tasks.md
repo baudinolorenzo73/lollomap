@@ -18,6 +18,20 @@
 - [x] Conservare una variante chiara ad alto contrasto.
 - [ ] Verificare sul telefono gli ingombri con tastiera, orientamento orizzontale e caratteri ingranditi.
 
+## Estensione 4.3.3
+
+- [x] Nascondere il riquadro di stampa all'avvio e aggiungere il relativo interruttore grafico.
+- [x] Eliminare il comando REG duplicato e usare il pulsante inferiore per aprire la registrazione.
+- [x] Spostare la bussola nei comandi superiori e rimuovere il 3D dalla colonna mappa.
+- [ ] Verificare sul telefono posizione e dimensione dei nuovi comandi.
+
+## Estensione 4.3.4
+
+- [x] Sostituire le icone PWA con il logo ufficiale «Oltre il Sentiero — con Lollo».
+- [x] Aggiungere versione visibile e comando unico «Installa e aggiorna» nel menu.
+- [x] Eliminare i vecchi pulsanti PWA flottanti dalla mappa.
+- [ ] Verificare sul telefono la nuova icona dopo pubblicazione e nuova installazione.
+
 - [x] Definire archivio unico e politica di pulizia dei dati di prova.
 - [x] Migrare soltanto impostazioni, ID client e chiavi API.
 - [x] Rinominare il database in `lollomap_pro`.

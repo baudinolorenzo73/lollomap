@@ -1,86 +1,96 @@
-/* pwa.js — installazione e aggiornamento dell'app. by Lollo ®2026
-   Costruisce da solo i suoi pulsanti (nessun markup richiesto nella pagina):
-   - «📲 Installa» quando Chrome permette l'installazione;
-   - «⬆ Aggiorna alla X» quando è pronta una versione nuova (cambia versione.js).
-   Funziona solo da https:// (GitHub Pages); aperta come file resta una pagina normale. */
+/* pwa.js — installazione e aggiornamento integrati nel menu. by Lollo ®2026 */
 (function () {
   'use strict';
   var VERSIONE = self.VERSIONE || '?';
-  var barra = null;
+  var richiesta = null;
+  var registrazione = null;
+  var workerAttesa = null;
+  var ricaricato = false;
 
-  function creaBarra() {
-    if (barra) return barra;
-    barra = document.createElement('div');
-    barra.setAttribute('role', 'status');
-    barra.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;display:none;' +
-      'gap:8px;flex-wrap:wrap;justify-content:center;font:600 16px system-ui,sans-serif';
-    document.body.appendChild(barra);
-    return barra;
+  function standalone() {
+    return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   }
-  function pulsante(testo, azione) {
-    var b = document.createElement('button');
-    b.type = 'button'; b.textContent = testo;
-    b.style.cssText = 'min-height:48px;padding:10px 18px;border:0;border-radius:12px;' +
-      'background:#1c3270;color:#fff;font:inherit;box-shadow:0 2px 10px rgba(0,0,0,.35)';
-    b.addEventListener('click', azione);
-    creaBarra().appendChild(b); barra.style.display = 'flex';
-    return b;
+  function status() {
+    return { install: !!richiesta, update: !!workerAttesa, standalone: standalone(), version: VERSIONE };
+  }
+  function comunica() {
+    document.dispatchEvent(new CustomEvent('lollomap:pwa-status', { detail: status() }));
+  }
+  function attendi(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
+  function impostaVersione() {
+    document.querySelectorAll('.num-versione').forEach(function (e) { e.textContent = VERSIONE; });
+  }
+  function preparaAggiornamento(sw) {
+    if (!sw) return;
+    workerAttesa = sw;
+    comunica();
+  }
+  async function azione() {
+    if (workerAttesa) {
+      workerAttesa.postMessage({ tipo: 'attiva' });
+      return;
+    }
+    if (richiesta) {
+      richiesta.prompt();
+      await richiesta.userChoice;
+      richiesta = null;
+      comunica();
+      return;
+    }
+    if (registrazione) {
+      try { await registrazione.update(); } catch (e) {}
+      await attendi(1200);
+      if (registrazione.waiting) {
+        preparaAggiornamento(registrazione.waiting);
+        registrazione.waiting.postMessage({ tipo: 'attiva' });
+        return;
+      }
+    }
+    if (standalone()) {
+      alert('LolloMap Pro è installata e usa la versione v' + VERSIONE + '. Non risultano aggiornamenti pronti.');
+    } else {
+      alert('Per installare LolloMap Pro apri il menu ⋮ di Chrome e scegli “Installa app” oppure “Aggiungi a schermata Home”.');
+    }
   }
 
-  // Installazione: al posto del banner di Chrome si mostra un pulsante nostro.
-  var richiesta = null, btnInstalla = null;
+  window.LolloPWA = { action: azione, status: status };
+
   window.addEventListener('beforeinstallprompt', function (e) {
-    e.preventDefault(); richiesta = e;
-    if (!btnInstalla) btnInstalla = pulsante('📲 Installa', async function () {
-      richiesta.prompt(); await richiesta.userChoice;
-      richiesta = null; btnInstalla.remove(); btnInstalla = null;
-    });
+    e.preventDefault();
+    richiesta = e;
+    comunica();
   });
   window.addEventListener('appinstalled', function () {
-    if (btnInstalla) { btnInstalla.remove(); btnInstalla = null; }
+    richiesta = null;
+    comunica();
   });
-
-  // Il numero di versione, dove la pagina ha un elemento con classe «num-versione».
   document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.num-versione').forEach(function (e) { e.textContent = VERSIONE; });
+    impostaVersione();
+    comunica();
   });
 
   if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
 
-  var btnAggiorna = null, ricaricato = false;
-  function offriAggiornamento(sw) {
-    if (btnAggiorna || !sw) return;
-    var canale = new MessageChannel();
-    var mostra = function (v) {
-      if (btnAggiorna) return;
-      btnAggiorna = pulsante('⬆ Aggiorna' + (v ? ' alla ' + v : ''), function () {
-        btnAggiorna.textContent = 'Aggiorno…';
-        sw.postMessage({ tipo: 'attiva' });
-      });
-    };
-    var scadenza = setTimeout(function () { mostra(''); }, 2000);
-    canale.port1.onmessage = function (e) { clearTimeout(scadenza); mostra(String(e.data || '')); };
-    try { sw.postMessage({ tipo: 'versione' }, [canale.port2]); } catch (x) { clearTimeout(scadenza); mostra(''); }
-  }
-
   navigator.serviceWorker.addEventListener('controllerchange', function () {
-    if (ricaricato) return; ricaricato = true; location.reload();
+    if (ricaricato) return;
+    ricaricato = true;
+    location.reload();
   });
 
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
-    // Versione già scaricata e in attesa (es. alla riapertura dell'app).
-    if (reg.waiting && navigator.serviceWorker.controller) offriAggiornamento(reg.waiting);
+    registrazione = reg;
+    if (reg.waiting && navigator.serviceWorker.controller) preparaAggiornamento(reg.waiting);
     reg.addEventListener('updatefound', function () {
       var nuovo = reg.installing;
       if (!nuovo) return;
       nuovo.addEventListener('statechange', function () {
-        if (nuovo.state === 'installed' && navigator.serviceWorker.controller) offriAggiornamento(nuovo);
+        if (nuovo.state === 'installed' && navigator.serviceWorker.controller) preparaAggiornamento(nuovo);
       });
     });
-    // Controlla all'apertura e quando l'app torna in primo piano.
     reg.update().catch(function () {});
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') reg.update().catch(function () {});
     });
-  }).catch(function () {});
+    comunica();
+  }).catch(function () { comunica(); });
 })();

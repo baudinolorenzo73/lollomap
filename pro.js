@@ -5,7 +5,7 @@ const wrap360=n=>((n%360)+360)%360;
 function proBearing(a,b){const r=Math.PI/180,p=a[0]*r,q=b[0]*r,d=(b[1]-a[1])*r;return wrap360(Math.atan2(Math.sin(d)*Math.cos(q),Math.cos(p)*Math.sin(q)-Math.sin(p)*Math.cos(q)*Math.cos(d))/r)}
 function proValid(p){return Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=90&&Math.abs(p[1])<=180}
 const proEl=id=>document.getElementById(id);
-const PRO_VERSION='4.3.2',PRO_DATA_SCHEMA='4.1.0',PRO_RESET='lollomap-pro.data-reset-'+PRO_DATA_SCHEMA,PRO_OUTBOX='lollomap-pro.outbox',PRO_THEME='lollomap-pro.theme';
+const PRO_VERSION='4.3.4',PRO_DATA_SCHEMA='4.1.0',PRO_RESET='lollomap-pro.data-reset-'+PRO_DATA_SCHEMA,PRO_OUTBOX='lollomap-pro.outbox',PRO_THEME='lollomap-pro.theme';
 PRO.version=PRO_VERSION;
 function proLegacySettings(){return new Promise(resolve=>{if(!('indexedDB'in window))return resolve(null);let q;try{q=indexedDB.open('atlante_lago_piccolo')}catch(e){return resolve(null)}q.onerror=()=>resolve(null);q.onupgradeneeded=()=>{};q.onsuccess=()=>{const d=q.result;if(!d.objectStoreNames.contains('kv')){d.close();return resolve(null)}try{const tx=d.transaction('kv','readonly'),g=tx.objectStore('kv').get('settings');g.onsuccess=()=>{d.close();resolve(g.result&&g.result.v||null)};g.onerror=()=>{d.close();resolve(null)}}catch(e){d.close();resolve(null)}}})}
 const proResetPromise=(async()=>{
@@ -20,8 +20,9 @@ const proResetPromise=(async()=>{
 proResetPromise.then(done=>{if(done){localStorage.setItem('lollomap-pro.reset-notice','1');location.reload();return}if(localStorage.getItem('lollomap-pro.reset-notice')){localStorage.removeItem('lollomap-pro.reset-notice');setTimeout(()=>alertino('Archivio LolloMap Pro unificato: dati e mappe di prova rimossi; configurazione conservata.','ok'),900)}});
 const tools=document.createElement('div');tools.id='pro-tools';tools.innerHTML=`<button id="pro-menu-btn" aria-expanded="false" aria-controls="pro-menu" title="Apri menu">☰<span>Menu</span></button>
 <nav id="pro-menu" hidden aria-label="Menu principale">
-  <div class="pro-drawer-profile"><div class="pro-drawer-icon">🥾</div><div><strong>LolloMap Pro</strong><small>Profilo: a piedi</small></div><button id="pro-menu-close" title="Chiudi menu">✕</button></div>
+  <div class="pro-drawer-profile"><div class="pro-drawer-icon"><img src="icone/oltre-il-sentiero-192.png" alt=""></div><div><strong>LolloMap Pro</strong><small>Profilo: a piedi</small><small class="pro-version">Versione v<span class="num-versione">${PRO_VERSION}</span></small></div><button id="pro-menu-close" title="Chiudi menu">✕</button></div>
   <button class="pro-drawer-cta" id="pro-panel-btn">Configura la mappa</button>
+  <button class="pro-pwa-card" id="pro-pwa-btn"><i>⇧</i><span><b>Installa e aggiorna</b><small id="pro-pwa-state">Versione v${PRO_VERSION}</small></span></button>
   <div class="pro-drawer-list">
     <button id="pro-find-btn"><i>⌕</i><span>Ricerca luogo</span></button>
     <button id="pro-points-btn"><i>⚑</i><span>Punti utili e marcatori</span></button>
@@ -41,8 +42,8 @@ document.body.appendChild(tools);
 document.querySelector('#app header h1').textContent='LOLLOMAP PRO';document.title='LolloMap Pro';
 document.querySelector('#pannello').insertAdjacentHTML('afterbegin','<div id="pro-panel-head"><strong>Strumenti mappa</strong><button id="pro-panel-close" title="Chiudi strumenti">✕</button></div>');
 document.body.insertAdjacentHTML('beforeend',`<div id="pro-backdrop" hidden></div>
-<div id="pro-hud" aria-label="Dati rapidi"><button id="pro-hud-alt"><small>ALTITUDINE</small><b id="pro-hud-alt-value">—</b></button><button id="pro-hud-reg"><small>DISTANZA</small><b id="pro-hud-reg-value">REG</b></button></div>
-<div id="pro-map-fabs" aria-label="Controlli mappa"><div class="pro-fabs-left"><button id="pro-nav-fab" title="Apri navigazione">◆</button></div><div class="pro-fabs-right"><button id="pro-3d-fab" title="Vista 3D">3D</button><button id="pro-zoom-in" title="Ingrandisci">＋</button><button id="pro-locate" title="La mia posizione">⌾</button><button id="pro-zoom-out" title="Riduci">−</button></div></div>
+<div id="pro-hud" aria-label="Dati rapidi"><button id="pro-hud-alt"><small>ALTITUDINE</small><b id="pro-hud-alt-value">—</b></button></div>
+<div id="pro-map-fabs" aria-label="Controlli mappa"><div class="pro-fabs-top"><button id="pro-compass-fab" title="Bussola e azimut" aria-label="Bussola e azimut">🧭</button><button id="pro-frame-fab" title="Mostra riquadro di stampa" aria-label="Mostra riquadro di stampa" aria-pressed="false"><span aria-hidden="true">▭</span></button></div><div class="pro-fabs-left"><button id="pro-nav-fab" title="Apri registrazione GPS" aria-label="Apri registrazione GPS">●</button></div><div class="pro-fabs-right"><button id="pro-zoom-in" title="Ingrandisci">＋</button><button id="pro-locate" title="La mia posizione">⌾</button><button id="pro-zoom-out" title="Riduci">−</button></div></div>
 <section class="pro-view" id="pro-field" hidden aria-label="Strumenti da campo"><div class="pro-bar"><strong>LOLLOMAP PRO / CAMPO</strong><button data-field="cat">Catalogo</button><button data-field="luo">Luogo</button><button data-field="usc">Uscita</button><button data-field="alt">Servizi e backup</button><button id="pro-field-close">✕ Mappa</button></div><iframe id="pro-frame" title="Catalogo e strumenti da campo" allow="geolocation; camera; microphone; accelerometer; gyroscope; magnetometer; fullscreen"></iframe></section>
 <section class="pro-view" id="pro-compass" hidden aria-label="Bussola e azimut"><div class="pro-bar"><strong>LOLLOMAP / COMPASS</strong><button id="pro-compass-close">✕ Chiudi</button></div><svg id="pro-dial" viewBox="0 0 400 400" role="img" aria-label="Rosa dei venti"><circle cx="200" cy="200" r="188" fill="none" stroke="var(--pro-cyan)" stroke-width="1"/><g id="pro-rose"></g><g id="pro-arrow"><path d="M200 45 L215 112 L200 100 L185 112Z" fill="var(--pro-pink)"/></g><path d="M200 7 L190 27 L210 27Z" fill="var(--pro-text)"/><circle cx="200" cy="200" r="5" fill="var(--pro-cyan)"/></svg><div id="pro-reading">—</div><p id="pro-status">Attiva i sensori per leggere la direzione.</p><div class="pro-controls"><button id="pro-sensors">Attiva sensori e GPS</button><button id="pro-lock">Blocca lettura</button><select id="pro-north" aria-label="Riferimento nord"><option value="true">Nord geografico</option><option value="mag">Nord magnetico</option></select><button id="pro-fs">⛶ Schermo intero</button></div><div class="pro-controls"><input id="pro-from" placeholder="Partenza: GPS oppure lat, lon" aria-label="Coordinate partenza"><input id="pro-to" placeholder="Destinazione: lat, lon" aria-label="Coordinate destinazione"><button id="pro-calc">Calcola azimut</button><button id="pro-map-target">Usa centro mappa</button><button id="pro-clear">Azzera destinazione</button></div><p id="pro-target-info">Sulla mappa tieni premuto o fai clic destro per scegliere una destinazione.</p><p class="pro-tip">La freccia indica la linea d’aria. La lettura dipende dal sensore: tieni il telefono orizzontale e lontano da metallo e magneti. Il calcolo delle coordinate funziona offline anche senza bussola.</p></section>`);
 function proOverlay(){const menu=!proEl('pro-menu').hidden,panel=document.body.classList.contains('pro-panel-open');proEl('pro-backdrop').hidden=!(menu||panel)}
@@ -52,6 +53,9 @@ function proOpenDetails(el){const d=typeof el==='string'?document.querySelector(
 function proLight(){return PRO.theme==='light'||(PRO.theme==='auto'&&!matchMedia('(prefers-color-scheme: dark)').matches)}
 function proApplyTheme(theme,save=false){PRO.theme=['auto','light','dark'].includes(theme)?theme:'auto';const light=proLight();document.body.classList.toggle('pro-sun',light);const b=proEl('pro-sun-btn');if(b){b.textContent=light?'🌙 Modalità notte':'☀ Modalità giorno';b.setAttribute('aria-label',b.textContent)}const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=light?'#f7fafc':'#070b12';if(save)localStorage.setItem(PRO_THEME,PRO.theme);if(!proEl('pro-field')?.hidden)proPost({type:'theme',sun:light})}
 proEl('pro-menu-btn').onclick=()=>proMenu();proEl('pro-menu-close').onclick=()=>proMenu(false);proEl('pro-panel-btn').onclick=()=>proPanel();proEl('pro-panel-close').onclick=()=>proPanel(false);proEl('pro-backdrop').onclick=()=>{proMenu(false);proPanel(false)};
+function proPwaPaint(detail){const s=detail||window.LolloPWA?.status?.()||{},el=proEl('pro-pwa-state');if(!el)return;el.textContent=s.update?'Aggiornamento pronto':s.install?'Pronta da installare':s.standalone?'Installata · v'+PRO_VERSION:'Versione v'+PRO_VERSION}
+proEl('pro-pwa-btn').onclick=async()=>{proMenu(false);if(window.LolloPWA?.action)await window.LolloPWA.action();else alertino('Installazione disponibile da Chrome: menu ⋮, poi Installa app.','ok')};
+document.addEventListener('lollomap:pwa-status',e=>proPwaPaint(e.detail));setTimeout(()=>proPwaPaint(),0);
 PRO.theme=localStorage.getItem(PRO_THEME)||'auto';proApplyTheme(PRO.theme);try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(PRO.theme==='auto')proApplyTheme('auto')})}catch(e){}
 let fieldPending=null;
 function proPost(m){proEl('pro-frame').contentWindow?.postMessage({app:'lollomap-pro',...m},location.origin)}
@@ -70,12 +74,10 @@ proEl('pro-3d-btn').onclick=()=>proOpenDetails('#det-3d');
 proEl('pro-navigation-btn').onclick=async()=>{proMenu(false);if(!nav.attivo)await entraNavigatore()};
 proEl('pro-record-btn').onclick=async()=>{proMenu(false);if(!nav.attivo)await entraNavigatore();if(nav.reg.stato!=='attiva')tastoRegistra()};
 proEl('pro-nav-fab').onclick=async()=>{if(!nav.attivo)await entraNavigatore()};
-proEl('pro-hud-reg').onclick=async()=>{if(!nav.attivo)await entraNavigatore()};
 proEl('pro-hud-alt').onclick=()=>proEl('pro-locate').click();
-proEl('pro-3d-fab').onclick=()=>proOpenDetails('#det-3d');
 proEl('pro-zoom-in').onclick=()=>mappa.zoomIn();proEl('pro-zoom-out').onclick=()=>mappa.zoomOut();
 proEl('pro-locate').onclick=()=>{if(nav.pos)mappa.setView([nav.pos.lat,nav.pos.lon],Math.max(15,mappa.getZoom()));else proEl('btn-gps')?.click()};
-function proUpdateHud(){const q=typeof quotaAttuale==='function'?quotaAttuale():null,r=nav.reg;proEl('pro-hud-alt-value').textContent=q!=null?Math.round(q)+' m':'—';proEl('pro-hud-reg-value').textContent=r.stato==='attiva'?'REC':r.stato==='pausa'?'PAUSA':r.punti.length?metri(r.dist):'REG';proEl('pro-hud-reg').classList.toggle('recording',r.stato==='attiva')}
+function proUpdateHud(){const q=typeof quotaAttuale==='function'?quotaAttuale():null;proEl('pro-hud-alt-value').textContent=q!=null?Math.round(q)+' m':'—';proEl('pro-nav-fab').classList.toggle('recording',nav.reg.stato==='attiva')}
 setInterval(proUpdateHud,1000);proUpdateHud();
 window.addEventListener('message',async e=>{if(e.origin!==location.origin||e.source!==proEl('pro-frame').contentWindow||e.data?.app!=='lollomap-pro')return;const d=e.data;
  if(d.type==='ready'){PRO.ready=true;if(fieldPending)proPost(fieldPending);PRO.broadcastRecording();PRO.outbox.forEach(proPost)}
@@ -115,7 +117,10 @@ async function proSensors(){
 }
 function proOpenCompass(){proEl('pro-compass').hidden=false;proPaint()}
 function proCloseCompass(){proEl('pro-compass').hidden=true;window.removeEventListener('deviceorientationabsolute',proOrientation);window.removeEventListener('deviceorientation',proOrientation);if(PRO.watch!==null)navigator.geolocation.clearWatch(PRO.watch);PRO.watch=null;if(APP&&PRO.nativeStarted)APP.fermaGPS();PRO.nativeStarted=false;PRO.wake?.release();PRO.wake=null;if(document.fullscreenElement===proEl('pro-compass'))document.exitFullscreen?.()}
-proEl('pro-compass-btn').onclick=proOpenCompass;proEl('pro-compass-close').onclick=proCloseCompass;proEl('pro-sensors').onclick=proSensors;
+proEl('pro-compass-btn').onclick=proOpenCompass;proEl('pro-compass-fab').onclick=proOpenCompass;proEl('pro-compass-close').onclick=proCloseCompass;proEl('pro-sensors').onclick=proSensors;
+function proFrameState(visible){const b=proEl('pro-frame-fab');b.classList.toggle('active',!!visible);b.setAttribute('aria-pressed',String(!!visible));b.title=visible?'Nascondi riquadro di stampa':'Mostra riquadro di stampa';b.setAttribute('aria-label',b.title)}
+proEl('pro-frame-fab').onclick=()=>impostaRiquadroVisibile(!riquadroVisibile);
+document.addEventListener('lollomap:riquadro',e=>proFrameState(e.detail?.visible));proFrameState(false);
 proEl('pro-lock').onclick=()=>{PRO.locked=PRO.locked===null&&PRO.heading!==null?wrap360(PRO.heading+(PRO.mode==='true'?proDecl():0)):null;proPaint()};
 proEl('pro-north').onchange=e=>{PRO.mode=e.target.value;PRO.locked=null;proPaint()};
 proEl('pro-fs').onclick=()=>{proEl('pro-compass').requestFullscreen?.().catch(()=>{})};

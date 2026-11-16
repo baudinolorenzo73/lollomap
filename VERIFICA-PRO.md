@@ -15,6 +15,21 @@
 - Verificato: nessun identificatore o gestore JavaScript è stato rimosso.
 - Da verificare sul telefono: resa visiva reale, tastiera, rotazione e ingrandimento caratteri.
 
+## Estensione 4.3.3
+
+- Verificato staticamente: il riquadro e la croce non vengono aggiunti alla mappa all'avvio.
+- Verificato staticamente: il pulsante rettangolare alterna entrambi i livelli e comunica lo stato accessibile.
+- Verificato staticamente: REG e 3D non compaiono più nei comandi flottanti della mappa.
+- Verificato staticamente: bussola in alto e registrazione in basso a sinistra mantengono i gestori esistenti.
+- Da verificare sul telefono: posizione reale dei pulsanti e risposta al tocco.
+
+## Estensione 4.3.4
+
+- Verificato staticamente: manifest, favicon e menu usano il logo ufficiale «Oltre il Sentiero — con Lollo».
+- Verificato staticamente: le icone 192, 512 e maskable hanno dimensioni corrette.
+- Verificato staticamente: versione e comando «Installa e aggiorna» sono presenti nel menu.
+- Da verificare sul telefono: sostituzione dell'icona della PWA già installata e flusso Chrome di installazione.
+
 ## Automatico
 
 - sintassi degli script radice e dei moduli Campo;
